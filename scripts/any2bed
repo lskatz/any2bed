@@ -7,6 +7,7 @@ use Data::Dumper;
 use Getopt::Long;
 use List::Util qw/sum/;
 use File::Basename qw/fileparse basename/;
+use File::Find qw/find/;
 
 # threads modules
 use threads;
@@ -169,18 +170,58 @@ sub bamLengths{
   return \%max;
 }
 # Finding the length of a VCF is sort of difficult.
-# There are three different ways to find it:
+# There are four different ways to find it:
 #   1. The ##reference line, and then parsing the fasta file
-#   2. The bcftools index -s function
-#   3. Parsing the file to find the max coordinate per seqname (slow)
+#   2. The ##contig line, and then parsing the lengths inline
+#   3. The bcftools index -s function
+#   4. Parsing the file to find the max coordinate per seqname (slow)
 sub vcfLengths{
   my($vcf,$settings)=@_;
+
+  # Try to find lengths using ##contig=<...>
+  my $fh;
+  if($vcf =~ /\.gz$/i){
+    open($fh, "zgrep '^##contig' $vcf | ") or die "ERROR: could not open $vcf for reading: $!";
+  } else {
+    open($fh, "grep '^##contig' $vcf | ") or die "ERROR: could not open $vcf for reading: $!";
+  }
+  my %contigLength;
+  SEARCH_VCF_FOR_CONTIG:
+  while(<$fh>){
+    # e.g., ##contig=<ID=NC_001416.1,length=48502,species="Escherichia virus lambda">
+    if(/^##contig=<(.*)>/){
+      chomp;
+      logmsg "Found contig: $_";
+      my $contigInfo = $1;
+      my @keyvalue = split(/,/,$contigInfo);
+      my %contigTag;
+      for(@keyvalue){
+        my($key, $value) = split /=/;
+        $key = uc($key);
+        $contigTag{$key} = $value;
+      }
+      if($contigTag{ID} && $contigTag{LENGTH}){
+        $contigLength{$contigTag{ID}} = $contigTag{LENGTH};
+      }
+    }
+  }
+  close $fh;
+  if(keys(%contigLength) > 0){
+    return \%contigLength;
+  }
+
+  # Try to find lengths using ##reference=...
+  my $fasta;
+  if($vcf =~ /\.gz$/i){
+    open($fh, "zgrep '^##reference' $vcf | ") or die "ERROR: could not open $vcf for reading: $!";
+  } else {
+    open($fh, "grep '^##reference' $vcf | ") or die "ERROR: could not open $vcf for reading: $!";
+  }
+
   # See if ##reference=reference can be found, and if so,
   # if this script can parse that fasta file for lengths.
-  my $fasta;
-  open(VCFGZ,"zgrep '^##reference' $vcf | ") or die "ERROR: could not open $vcf for reading: $!";
   SEARCH_VCF_FOR_FASTA_PATH:
-  while(<VCFGZ>){
+  while(<$fh>){
     # VCFtools v0.1.14 filtering appends to fileformat=VCFv4.2 '##reference=file:///reference-path'
     if(/^##reference=file:\/\/(.+)/){
       $fasta=$1;
@@ -189,22 +230,46 @@ sub vcfLengths{
     elsif(/^##reference=(.+)/){
       $fasta=$1;
     }
+    logmsg "Reference genome specified as $fasta";
+    logmsg "  searching up to 99 parent directories for $fasta";
     # Look for the fasta by going up about 99 directories
     for my $i(0..99){
       my $dirPrefix = "../" x $i;
+      # Look for the fasta going up and including any relative path
       if(-e "$dirPrefix$fasta"){
         $fasta="$dirPrefix$fasta";
         logmsg "Found reference genome at $fasta";
         last SEARCH_VCF_FOR_FASTA_PATH;
       }
+      # Look for the fasta going up and excluding any relative path
+      if(-e "$dirPrefix".basename($fasta)){
+        $fasta="$dirPrefix$fasta";
+        logmsg "Found reference genome at $fasta";
+        last SEARCH_VCF_FOR_FASTA_PATH;
+      }
     }
+
+    # See if the file is down any directories
+    logmsg "  searching into all child folders for $fasta";
+    find({wanted=>sub{
+          if(basename($fasta) eq $_){
+            $fasta = $File::Find::name;
+            last SEARCH_VCF_FOR_FASTA_PATH;
+          }
+        },
+        no_chdir=>0},
+      "."
+    );
     logmsg "Found reference genome $fasta in the vcf file but it does not exist where I expect it";
     $fasta="";
   }
-  close VCFGZ;
+  close $fh;
+
+  # If the ##reference method found something, streamline using the fasta lengths function
   if($fasta){
     return fastaLengths($fasta,$settings);
   }
+
   my %max; # used for any of the next methods
   # See if bcftools can help find the length if the ref is not found
   my @bcftoolsIndex=`bcftools index --stats '$vcf' 2>/dev/null`;

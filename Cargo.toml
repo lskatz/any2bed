@@ -1,0 +1,25 @@
+[package]
+name        = "any2bed"
+version     = "0.1.0"
+authors     = ["Lee Katz - <gzu2@cdc.gov>"]
+edition     = "2018"
+license     = "MIT"
+description = "Create a BED file from GenBank, FASTA, VCF, and perhaps other formats"
+categories  = ["command-line-utilities", "science"]
+keywords    = ["bioinformatics","streaming"]
+readme      = "./README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "any2fasta"
+path = "src/bin/any2fasta.rs"
+
+[dependencies]
+#regex       = "0.2.10"
+getopts     = "0.2"
+#rust-htslib = "0.20"
+#statistical = "0.1.1"
+#multiqueue  = "0.3.2"
+#rand        = "0.4"
+

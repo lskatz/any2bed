@@ -1,5 +1,7 @@
-use rust_htslib::{bam, bam::Read};
+use bio::io::fasta::Reader;
+//use rust_htslib::{bam, bam::Read};
 
+/*
 fn bam2bed(filename:&str){
 
   let mut bam = bam::Reader::from_path(filename).unwrap();
@@ -23,8 +25,9 @@ fn bam2bed(filename:&str){
   }
 
 }
+*/
 
 fn main() {
   let filename = &"t/single.bam";
-  bam2bed(filename);
+  //bam2bed(filename);
 }

@@ -1,33 +1,66 @@
-use bio::io::fasta::Reader;
-//use rust_htslib::{bam, bam::Read};
+// to read from files
+use std::fs::File;
+//use std::io::prelude::*;
 
-/*
-fn bam2bed(filename:&str){
+//RUST-BIO
+//use std::io;
+use bio::io::fasta;
 
-  let mut bam = bam::Reader::from_path(filename).unwrap();
+// argument parsing
+use clap::{Arg, App};
 
-  for p in bam.pileup() {
-    let pileup = p.unwrap();
-    println!("{}:{} depth {}", pileup.tid(), pileup.pos(), pileup.depth());
+fn fasta2bed(filename:&str) -> Vec<String>{
 
-    for alignment in pileup.alignments() {
-      if !alignment.is_del() && !alignment.is_refskip() {
-        println!("Base {}", alignment.record().seq()[alignment.qpos().unwrap()]);
-      }
+    // Initialize the vector of bed entries
+    let mut range :Vec<String> = Vec::new();
 
-      // mark indel start
-      match alignment.indel() {
-        bam::pileup::Indel::Ins(len) => println!("Insertion of length {} between this and next position.", len),
-        bam::pileup::Indel::Del(len) => println!("Deletion of length {} between this and next position.", len),
-        bam::pileup::Indel::None     => ()
-      }
+    // open the file and start off the fasta reader
+    let file = File::open(filename).unwrap();
+    let reader = fasta::Reader::new(file);
+
+    // parse each entry
+    for record in reader.records() {
+        let record          = record.unwrap();
+        let sequence :&[u8] = record.seq();
+        let id              = record.id();
+        let length          = sequence.len();
+        let length_string    = length.to_string();
+
+        let bed_string       = vec![id, "1", &length_string].join("\t");
+
+        // Save the bed entry into the range vector
+        range.push(bed_string); 
     }
-  }
 
+    return range;
 }
-*/
+
+fn gff2bed(filename:&str) -> Vec<String>{
+    let range = vec![];
+    return range;
+}
 
 fn main() {
-  let filename = &"t/single.bam";
-  //bam2bed(filename);
+
+    let matches = App::new("any2bed")
+        .arg(Arg::with_name("fasta")
+             .short("f")
+             .long("fasta")
+             .takes_value(true)
+             .value_name("fasta file")
+             .multiple(true)
+             .help("A fasta file path"))
+         .get_matches();
+
+    // Parse fasta files
+    for filename in matches.values_of("fasta").unwrap() {
+        let range = fasta2bed(filename);
+        println!("{:?}", range);
+    }
+
+    // Parse gff files
+    for filename in matches.values_of("gff").unwrap() {
+        let range = gff2bed(filename);
+        println!("{:?}", range);
+    }
 }

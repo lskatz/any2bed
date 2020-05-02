@@ -1,18 +1,20 @@
 // to read from files
 use std::fs::File;
-//use std::io::prelude::*;
+use std::io::stdout;
 
 //RUST-BIO
 //use std::io;
 use bio::io::fasta;
+use bio::io::gff;
+use bio::io::bed;
 
 // argument parsing
 use clap::{Arg, App};
 
-fn fasta2bed(filename:&str) -> Vec<String>{
+fn fasta2bed(filename:&str) -> Vec<bed::Record>{
 
     // Initialize the vector of bed entries
-    let mut range :Vec<String> = Vec::new();
+    let mut range :Vec<bed::Record> = Vec::new();
 
     // open the file and start off the fasta reader
     let file = File::open(filename).unwrap();
@@ -24,19 +26,44 @@ fn fasta2bed(filename:&str) -> Vec<String>{
         let sequence :&[u8] = record.seq();
         let id              = record.id();
         let length          = sequence.len();
-        let length_string    = length.to_string();
 
-        let bed_string       = vec![id, "1", &length_string].join("\t");
+        let mut bed_record  = bed::Record::new();
+        bed_record.set_chrom(id);
+        bed_record.set_start(0 as u64);
+        bed_record.set_end(length as u64 -1);
 
         // Save the bed entry into the range vector
-        range.push(bed_string); 
+        range.push(bed_record); 
     }
 
     return range;
 }
 
-fn gff2bed(filename:&str) -> Vec<String>{
-    let range = vec![];
+fn gff2bed(filename:&str) -> Vec<bed::Record>{
+
+    // Initialize the vector of bed entries
+    let mut range :Vec<bed::Record> = Vec::new();
+
+    // open the file and start off the fasta reader
+    let file = File::open(filename).unwrap();
+    let mut reader = gff::Reader::new(file, gff::GffType::GFF3);
+
+    // parse each entry
+    for record in reader.records() {
+        let record          = record.unwrap();
+        let id              = record.seqname();
+        let start           = record.start();
+        let end             = record.end();
+
+        let mut bed_record  = bed::Record::new();
+        bed_record.set_chrom(id);
+        bed_record.set_start(*start as u64 - 1);
+        bed_record.set_end(*end as u64 -1);
+
+        // Save the bed entry into the range vector
+        range.push(bed_record); 
+    }
+
     return range;
 }
 
@@ -50,17 +77,37 @@ fn main() {
              .value_name("fasta file")
              .multiple(true)
              .help("A fasta file path"))
-         .get_matches();
+        .arg(Arg::with_name("gff")
+             .short("g")
+             .long("gff")
+             .takes_value(true)
+             .value_name("gff file")
+             .multiple(true)
+             .help("A gff file path"))
+        .get_matches();
+    
+    // use stdout as the output file
+    let stdout = stdout();
+    let handle = stdout.lock();
+    let mut writer = bed::Writer::new(handle);
 
     // Parse fasta files
-    for filename in matches.values_of("fasta").unwrap() {
+    let fasta_filenames = matches.values_of("fasta").unwrap();
+    for filename in fasta_filenames {
         let range = fasta2bed(filename);
-        println!("{:?}", range);
+        for record in range {
+            writer.write(&record).expect("ERROR: could not write to file");
+        }
     }
 
     // Parse gff files
-    for filename in matches.values_of("gff").unwrap() {
+    let gff_filenames = matches.values_of("gff").unwrap();
+    for filename in gff_filenames {
         let range = gff2bed(filename);
-        println!("{:?}", range);
+        for record in range {
+            writer.write(&record).expect("ERROR: could not write to file");
+        }
     }
+
 }
+

@@ -118,28 +118,42 @@ fn main() {
              .help("A genbank file path"))
         .get_matches();
     
-    // use stdout as the output file
-    let stdout = stdout();
-    let handle = stdout.lock();
-    let mut writer = bed::Writer::new(handle);
+    /*
+     * The functions that read each format will return a
+     * range of bed objects and we'll collect them here
+     * in this range vector.
+    */
+    let mut range :Vec<bed::Record> = Vec::new();
 
     // Parse fasta files
     let fasta_filenames = matches.values_of("fasta").unwrap();
     for filename in fasta_filenames {
-        let range = fasta2bed(filename);
-        for record in range {
-            writer.write(&record).expect("ERROR: could not write to file");
-        }
+        let these_ranges = fasta2bed(filename);
+        //range = [&range, &theseRanges].concat();
+        range.extend_from_slice(&these_ranges);
     }
 
     // Parse gff files
     let gff_filenames = matches.values_of("gff").unwrap();
     for filename in gff_filenames {
-        let range = gff2bed(filename);
-        for record in range {
-            writer.write(&record).expect("ERROR: could not write to file");
-        }
+        let these_ranges = gff2bed(filename);
+        range.extend_from_slice(&these_ranges);
     }
 
+    // Parse gbk files
+    let gbk_filenames = matches.values_of("gbk").unwrap();
+    for filename in gbk_filenames {
+        let these_ranges = gbk2bed(filename);
+        range.extend_from_slice(&these_ranges);
+    }
+
+    // Now write the records to file
+    // use stdout as the output file
+    let stdout = stdout();
+    let handle = stdout.lock();
+    let mut writer = bed::Writer::new(handle);
+    for r in range {
+        writer.write(&r).expect("ERROR: could not write to file");
+    }
 }
 

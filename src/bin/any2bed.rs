@@ -8,6 +8,8 @@ use bio::io::fasta;
 use bio::io::gff;
 use bio::io::bed;
 
+use gb_io::reader::SeqReader;
+
 // argument parsing
 use clap::{Arg, App};
 
@@ -66,6 +68,29 @@ fn gff2bed(filename:&str) -> Vec<bed::Record>{
 
     return range;
 }
+fn gbk2bed(filename:&str) -> Vec<bed::Record>{
+
+    // Initialize the vector of bed entries
+    let mut range :Vec<bed::Record> = Vec::new();
+
+    // open the file and start off the fasta reader
+    let file = File::open(filename).unwrap();
+    let reader = SeqReader::new(file);
+    for seq in reader {
+        let seq    = seq.unwrap();
+        let length = seq.len();
+        let name   = seq.name.unwrap();
+
+        let mut bed_record  = bed::Record::new();
+        bed_record.set_chrom(&name);
+        bed_record.set_start(0);
+        bed_record.set_end(length as u64 -1);
+
+        range.push(bed_record);
+    }
+
+    return range;
+}
 
 fn main() {
 
@@ -84,6 +109,13 @@ fn main() {
              .value_name("gff file")
              .multiple(true)
              .help("A gff file path"))
+        .arg(Arg::with_name("gbk")
+             .short("g")
+             .long("gbk")
+             .takes_value(true)
+             .value_name("genbank file")
+             .multiple(true)
+             .help("A genbank file path"))
         .get_matches();
     
     // use stdout as the output file

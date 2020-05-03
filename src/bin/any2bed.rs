@@ -30,7 +30,7 @@ fn fasta2bed(filename:&str) -> Vec<bed::Record>{
     let mut range :Vec<bed::Record> = Vec::new();
 
     // open the file and start off the fasta reader
-    let file = File::open(filename).unwrap();
+    let file = File::open(filename).expect("Open a fasta file");
     let reader = fasta::Reader::new(file);
 
     // parse each entry
@@ -58,7 +58,7 @@ fn gff2bed(filename:&str) -> Vec<bed::Record>{
     let mut range :Vec<bed::Record> = Vec::new();
 
     // open the file and start off the fasta reader
-    let file = File::open(filename).expect("Open a file");
+    let file = File::open(filename).expect("Open a gff file");
     let mut reader = gff::Reader::new(file, gff::GffType::GFF3);
 
     // parse each entry
@@ -85,7 +85,7 @@ fn gbk2bed(filename:&str) -> Vec<bed::Record>{
     let mut range :Vec<bed::Record> = Vec::new();
 
     // open the file and start off the fasta reader
-    let file = File::open(filename).unwrap();
+    let file = File::open(filename).expect("Open a gbk file");
     let reader = SeqReader::new(file);
     for seq in reader {
         let seq    = seq.unwrap();
@@ -120,21 +120,24 @@ fn main() {
     let filenames = matches.values_of("file").unwrap();
     for filename in filenames {
       let extension = get_extension_from_filename(filename).expect("File extension");
-      let these_ranges :Vec<bed::Record> = match extension {
-          "fasta" => {
+
+      // The ranges for this filename
+      // The way we get the ranges depends on the file exension.
+      let range :Vec<bed::Record> = match extension {
+          "fasta"            => {
               fasta2bed(&filename)
           },
-          "gbk"   => {
+          "gbk"        => {
               gbk2bed(&filename)
           },
-          "gff"   => {
+          "gff"          => {
               gff2bed(&filename)
           },
           _     => {
               panic!("ERROR: I don't know what extension {} is from filename {}", extension, filename)
           }
       };
-      for r in these_ranges {
+      for r in range {
           writer.write(&r).expect("ERROR: could not write to file");
       }
     }

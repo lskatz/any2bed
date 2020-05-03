@@ -2,16 +2,27 @@
 use std::fs::File;
 use std::io::stdout;
 
+// for file extension stuff
+use std::path::Path;
+use std::ffi::OsStr;
+
 //RUST-BIO
-//use std::io;
 use bio::io::fasta;
 use bio::io::gff;
 use bio::io::bed;
 
+//GenBank files
 use gb_io::reader::SeqReader;
 
 // argument parsing
 use clap::{Arg, App};
+
+// Get the extension of a filename
+fn get_extension_from_filename(filename: &str) -> Option<&str> {
+    Path::new(filename)
+        .extension()
+        .and_then(OsStr::to_str)
+}
 
 fn fasta2bed(filename:&str) -> Vec<bed::Record>{
 
@@ -47,7 +58,7 @@ fn gff2bed(filename:&str) -> Vec<bed::Record>{
     let mut range :Vec<bed::Record> = Vec::new();
 
     // open the file and start off the fasta reader
-    let file = File::open(filename).unwrap();
+    let file = File::open(filename).expect("Open a file");
     let mut reader = gff::Reader::new(file, gff::GffType::GFF3);
 
     // parse each entry
@@ -95,65 +106,37 @@ fn gbk2bed(filename:&str) -> Vec<bed::Record>{
 fn main() {
 
     let matches = App::new("any2bed")
-        .arg(Arg::with_name("fasta")
-             .short("f")
-             .long("fasta")
-             .takes_value(true)
-             .value_name("fasta file")
+        .arg(Arg::with_name("file")
+             .value_name("file")
              .multiple(true)
-             .help("A fasta file path"))
-        .arg(Arg::with_name("gff")
-             .short("g")
-             .long("gff")
-             .takes_value(true)
-             .value_name("gff file")
-             .multiple(true)
-             .help("A gff file path"))
-        .arg(Arg::with_name("gbk")
-             .short("g")
-             .long("gbk")
-             .takes_value(true)
-             .value_name("genbank file")
-             .multiple(true)
-             .help("A genbank file path"))
+             .help("A fasta/gff/gbk file path"))
         .get_matches();
     
-    /*
-     * The functions that read each format will return a
-     * range of bed objects and we'll collect them here
-     * in this range vector.
-    */
-    let mut range :Vec<bed::Record> = Vec::new();
-
-    // Parse fasta files
-    let fasta_filenames = matches.values_of("fasta").unwrap();
-    for filename in fasta_filenames {
-        let these_ranges = fasta2bed(filename);
-        //range = [&range, &theseRanges].concat();
-        range.extend_from_slice(&these_ranges);
-    }
-
-    // Parse gff files
-    let gff_filenames = matches.values_of("gff").unwrap();
-    for filename in gff_filenames {
-        let these_ranges = gff2bed(filename);
-        range.extend_from_slice(&these_ranges);
-    }
-
-    // Parse gbk files
-    let gbk_filenames = matches.values_of("gbk").unwrap();
-    for filename in gbk_filenames {
-        let these_ranges = gbk2bed(filename);
-        range.extend_from_slice(&these_ranges);
-    }
-
-    // Now write the records to file
     // use stdout as the output file
     let stdout = stdout();
     let handle = stdout.lock();
     let mut writer = bed::Writer::new(handle);
-    for r in range {
-        writer.write(&r).expect("ERROR: could not write to file");
+
+    let filenames = matches.values_of("file").unwrap();
+    for filename in filenames {
+      let extension = get_extension_from_filename(filename).expect("File extension");
+      let these_ranges :Vec<bed::Record> = match extension {
+          "fasta" => {
+              fasta2bed(&filename)
+          },
+          "gbk"   => {
+              gbk2bed(&filename)
+          },
+          "gff"   => {
+              gff2bed(&filename)
+          },
+          _     => {
+              panic!("ERROR: I don't know what extension {} is from filename {}", extension, filename)
+          }
+      };
+      for r in these_ranges {
+          writer.write(&r).expect("ERROR: could not write to file");
+      }
     }
 }
 

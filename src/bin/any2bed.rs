@@ -14,6 +14,9 @@ use bio::io::bed;
 //GenBank files
 use gb_io::reader::SeqReader;
 
+//htslib is for vcf, bam, sam
+use rust_htslib::{bam, bam::Read};
+
 // argument parsing
 use clap::{Arg, App};
 
@@ -103,13 +106,28 @@ fn gbk2bed(filename:&str) -> Vec<bed::Record>{
     return range;
 }
 
+fn bam2bed(filename:&str) -> Vec<bed::Record>{
+
+    // Initialize the vector of bed entries
+    let mut range :Vec<bed::Record> = Vec::new();
+
+    let mut bam = bam::Reader::from_path(filename).expect("Open bam file");
+    let header  = bam::Header::from_template(bam.header());
+
+    println!("{:?}", header);
+
+    return range;
+
+}
+
 fn main() {
 
+    // TODO get version, author information from Cargo.toml
     let matches = App::new("any2bed")
         .arg(Arg::with_name("file")
              .value_name("file")
              .multiple(true)
-             .help("A fasta/gff/gbk file path"))
+             .help("A fasta/gff/gbk/bam file path"))
         .get_matches();
     
     // use stdout as the output file
@@ -133,6 +151,9 @@ fn main() {
           "gff"          => {
               gff2bed(&filename)
           },
+          "bam"          => {
+              bam2bed(&filename)
+          }
           _     => {
               panic!("ERROR: I don't know what extension {} is from filename {}", extension, filename)
           }

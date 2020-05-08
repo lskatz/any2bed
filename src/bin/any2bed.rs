@@ -1,5 +1,6 @@
 // to read from files
 use std::fs::File;
+use std::str::from_utf8;
 use std::io::stdout;
 
 // for file extension stuff
@@ -112,9 +113,24 @@ fn bam2bed(filename:&str) -> Vec<bed::Record>{
     let mut range :Vec<bed::Record> = Vec::new();
 
     let mut bam = bam::Reader::from_path(filename).expect("Open bam file");
-    let header  = bam::Header::from_template(bam.header());
 
-    println!("{:?}", header);
+    // Get header information from the bam
+    let header = bam.header();
+
+    // loop through all reference sequences
+    for i in 0..header.target_count(){
+      // Get characteristics for each sequence
+      let name   = from_utf8(header.tid2name(i)).expect("Sequence name");
+      let length = header.target_len(i).expect("Sequence length");
+
+      // start off the bed record
+      let mut bed_record = bed::Record::new();
+      bed_record.set_chrom(name);
+      bed_record.set_start(0);
+      bed_record.set_end(length as u64 -1);
+
+      range.push(bed_record);
+    }
 
     return range;
 

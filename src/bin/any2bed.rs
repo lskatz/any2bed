@@ -2,6 +2,11 @@
 use std::fs::File;
 use std::str::from_utf8;
 use std::io::stdout;
+use std::io::BufReader;
+use std::io::BufRead;
+
+// regex
+use regex::Regex;
 
 // for file extension stuff
 use std::path::Path;
@@ -112,7 +117,7 @@ fn bam2bed(filename:&str) -> Vec<bed::Record>{
     // Initialize the vector of bed entries
     let mut range :Vec<bed::Record> = Vec::new();
 
-    let mut bam = bam::Reader::from_path(filename).expect("Open bam file");
+    let bam = bam::Reader::from_path(filename).expect("Open bam file");
 
     // Get header information from the bam
     let header = bam.header();
@@ -136,10 +141,58 @@ fn bam2bed(filename:&str) -> Vec<bed::Record>{
 
 }
 
-fn main() {
+fn sam2bed(filename:&str) -> Vec<bed::Record>{
 
+    // Initialize the vector of bed entries
+    let mut range :Vec<bed::Record> = Vec::new();
+
+    let file   = File::open(filename).expect("Open a sam file");
+    let reader = BufReader::new(file);
+
+    // set up some regexes
+    // match for sequence names - @SQ
+    let re_sq  = Regex::new(r"^@SQ").expect("regex for @SQ");
+    // match for SN:value
+    let re_sn  = Regex::new(r"^SN:(.)").expect("regex for SN:");
+    // match for LN:value
+    let re_ln  = Regex::new(r"^LN:(\d+)").expect("regex for LN:");
+
+    for l in reader.lines() {
+        let line = l.expect("Next line in sam");
+        // split the line into the vector f
+        let f :Vec<&str> = line.split("\t").collect();
+
+        // headers with seq length in sam file start with @SQ
+        // If found, record name and length in a bed entry.
+        if re_sq.is_match(f[0]) {
+            let mut length :usize;
+            let mut name :&str;
+            for key_value in f.iter() {
+                // &"Golden Eagle"[..6];
+                let key = &key_value[0..2];
+                match key {
+                    "LN" => {
+                      //length = &key_value[2..];
+                      length = 9000;
+                    },
+                    "SN" => {
+                      name   = &key_value[2..];
+                    },
+                    _    => {}
+                }
+            }
+        }
+    }
+
+    return range;
+}
+
+fn main() {
     // TODO get version, author information from Cargo.toml
     let matches = App::new("any2bed")
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(Arg::with_name("file")
              .value_name("file")
              .multiple(true)
@@ -169,6 +222,9 @@ fn main() {
           },
           "bam"          => {
               bam2bed(&filename)
+          }
+          "sam"          => {
+              sam2bed(&filename)
           }
           _     => {
               panic!("ERROR: I don't know what extension {} is from filename {}", extension, filename)

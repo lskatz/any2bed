@@ -16,7 +16,7 @@ name = "any2bed"
 path = "src/bin/any2bed.rs"
 
 [dependencies]
-#regex       = "0.2.10"
+regex       = "0.2.10"
 getopts     = "0.2"
 bio         = "0.30"
 gb-io       = "0.6"

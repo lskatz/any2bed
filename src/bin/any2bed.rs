@@ -22,6 +22,7 @@ use gb_io::reader::SeqReader;
 
 //htslib is for vcf, bam, sam
 use rust_htslib::{bam, bam::Read};
+//use rust_htslib::{bcf, bcf::Read};
 
 // argument parsing
 use clap::{Arg, App};
@@ -236,10 +237,16 @@ fn main() {
           },
           "bam"          => {
               bam2bed(&filename)
-          }
+          },
           "sam"          => {
               sam2bed(&filename)
-          }
+          },
+          "bcf"          => {
+              panic!("SORRY bcf is not supported yet");
+          },
+          "vcf"          => {
+              panic!("SORRY vcf is not supported yet");
+          },
           _     => {
               panic!("ERROR: I don't know what extension {} is from filename {}", extension, filename)
           }

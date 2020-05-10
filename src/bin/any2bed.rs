@@ -153,9 +153,9 @@ fn sam2bed(filename:&str) -> Vec<bed::Record>{
     // match for sequence names - @SQ
     let re_sq  = Regex::new(r"^@SQ").expect("regex for @SQ");
     // match for SN:value
-    let re_sn  = Regex::new(r"^SN:(.)").expect("regex for SN:");
+    //let re_sn  = Regex::new(r"^SN:(.)").expect("regex for SN:");
     // match for LN:value
-    let re_ln  = Regex::new(r"^LN:(\d+)").expect("regex for LN:");
+    //let re_ln  = Regex::new(r"^LN:(\d+)").expect("regex for LN:");
 
     for l in reader.lines() {
         let line = l.expect("Next line in sam");
@@ -165,22 +165,36 @@ fn sam2bed(filename:&str) -> Vec<bed::Record>{
         // headers with seq length in sam file start with @SQ
         // If found, record name and length in a bed entry.
         if re_sq.is_match(f[0]) {
-            let mut length :usize;
-            let mut name :&str;
+            let mut length :u64 = 0;
+            let mut name :&str ="";
             for key_value in f.iter() {
                 // &"Golden Eagle"[..6];
                 let key = &key_value[0..2];
                 match key {
                     "LN" => {
-                      //length = &key_value[2..];
-                      length = 9000;
+                      length = key_value[3..].parse().unwrap();
+                      /*
+                      let length_res :Result<u64, _> = key_value[3..].parse();
+                      length = match &length_res {
+                          Ok(v) => *v,
+                          Err(e)=> panic!("ERROR parsing {:?}: {}", length_res, e),
+                      };
+                      */
                     },
                     "SN" => {
-                      name   = &key_value[2..];
+                      name   = &key_value[3..];
                     },
                     _    => {}
                 }
             }
+
+            // start off the bed record
+            let mut bed_record = bed::Record::new();
+            bed_record.set_chrom(name);
+            bed_record.set_start(0);
+            bed_record.set_end(length -1);
+
+            range.push(bed_record);
         }
     }
 

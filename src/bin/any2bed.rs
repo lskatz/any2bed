@@ -27,6 +27,8 @@ use rust_htslib::{bam, bam::Read};
 // argument parsing
 use clap::{Arg, App};
 
+use any2bed::magic::create_magic_cookie;
+
 // Get the extension of a filename
 fn get_extension_from_filename(filename: &str) -> Option<&str> {
     Path::new(filename)
@@ -219,9 +221,24 @@ fn main() {
     let handle = stdout.lock();
     let mut writer = bed::Writer::new(handle);
 
+    let cookie = create_magic_cookie();
+
+    let source_file = file!();
+    println!("{}", source_file);
+
     let filenames = matches.values_of("file").unwrap();
     for filename in filenames {
       let extension = get_extension_from_filename(filename).expect("File extension");
+
+      println!("{}", filename);
+      let file_type_result = cookie.file(&filename);
+      let file_type = match file_type_result {
+        Ok(s)  => s,
+        Err(e) => {
+          panic!("Could not figure out file magic for {}: {}", filename, e)
+        },
+      };
+      println!("{} - {}", filename, file_type);
 
       // The ranges for this filename
       // The way we get the ranges depends on the file exension.

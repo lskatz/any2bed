@@ -1,6 +1,6 @@
 [package]
 name        = "any2bed"
-version     = "0.1.0"
+version     = "0.2.0"
 authors     = ["Lee Katz - <gzu2@cdc.gov>"]
 edition     = "2018"
 license     = "MIT"
@@ -22,6 +22,7 @@ bio         = "0.30"
 gb-io       = "0.6"
 clap        = "2.33"
 #niffler     = "2.0"
+magic       = "0.12"
 rust-htslib = "0.30"
 #statistical = "0.1.1"
 #multiqueue  = "0.3.2"
